@@ -11,16 +11,16 @@ size = comm.Get_size()
 def read_data():
     with open('proteins.csv', newline='') as csvfile:
         csvreader = csv.DictReader(csvfile)
-        data = []
-        for row in csvreader:
-            id = int(row['structureId'])
-            sequence = row['sequence']
-            data.append((id, sequence))
-    return data
+        data = [(int(row['structureId']), row['sequence']) for row in csvreader]
+        subset_size = len(data) // size
 
-def search_pattern(data, pattern):
+        # Dividir los datos en subconjuntos
+        data_subsets = [data[i*subset_size:(i+1)*subset_size] for i in range(size)]
+    return data_subsets
+    
+def search_pattern(data_chunk, pattern):
     ocurrences_dict = {}
-    for (id, sequence) in data:
+    for (id, sequence) in data_chunk:
         ocurrences = sequence.count(pattern)
         if ocurrences != 0:
             ocurrences_dict[id] = ocurrences
@@ -39,25 +39,29 @@ def plot_histogram(ocurrences_dict, n):
     plt.show()
     return ocurrences_dict_sorted
 
-def max_occurrences_protein(ocurrences_dict_sorted, patter_in_upper_case):
+def max_occurrences_protein(ocurrences_dict_sorted, pattern_in_upper_case):
     (id, n_occurrences) = next(iter(ocurrences_dict_sorted.items()))
-    print('The protein with max ocurrences has de id', id, 'and it has', n_occurrences, 'ocurrence of the pattern', patter_in_upper_case, '.')
+    print(f'The protein with max occurrences has the id {id} and it has {n_occurrences} occurrences of the pattern {pattern_in_upper_case}.')
 
 def main():
-    pattern = input("Please insert the pattern you want to search for: ")
-    patter_in_upper_case = pattern.upper()
+    if rank == 0:
+        # Only the root process collects user input
+        pattern = input("Please insert the pattern you want to search for: ")
+    else:
+        pattern = None
+
+    # Broadcast the pattern to all processes
+    pattern = comm.bcast(pattern, root=0)
+    pattern_in_upper_case = pattern.upper()
 
     t0 = time.time()
     proteins = read_data()
 
-    # Split the data among processes
-    chunk_size = len(proteins) // size
-    start = rank * chunk_size
-    end = (rank + 1) * chunk_size if rank != size - 1 else len(proteins)
+    # Scatter the data to all processes
+    local_proteins = comm.scatter(proteins, root=0)
 
-    # Each process works on its portion of the data
-    local_proteins = proteins[start:end]
-    local_ocurrences_dict = search_pattern(local_proteins, patter_in_upper_case)
+    # Search for the pattern in each process's data chunk
+    local_ocurrences_dict = search_pattern(local_proteins, pattern_in_upper_case)
 
     # Gather results from all processes
     ocurrences_dicts = comm.gather(local_ocurrences_dict, root=0)
@@ -69,11 +73,14 @@ def main():
         ocurrences_dict = {}
         for d in ocurrences_dicts:
             ocurrences_dict.update(d)
-
+        
         print(f"Time elapsed: {t1 - t0} seconds")
         ocurrences_dict_sorted = plot_histogram(ocurrences_dict, 10)
-        max_occurrences_protein(ocurrences_dict_sorted, patter_in_upper_case)
+        max_occurrences_protein(ocurrences_dict_sorted, pattern_in_upper_case)
 
 if __name__ == "__main__":
     main()
+
+
+
 
