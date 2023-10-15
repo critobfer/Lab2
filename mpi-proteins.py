@@ -3,20 +3,30 @@ import csv
 import matplotlib.pyplot as plt
 import numpy as np
 from mpi4py import MPI
+from itertools import islice
+
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
-def read_data():
+def read_data(numrows):
+    subset_size = numrows // size
+
     with open('proteins.csv', newline='') as csvfile:
         csvreader = csv.DictReader(csvfile)
-        data = [(int(row['structureId']), row['sequence']) for row in csvreader]
-        subset_size = len(data) // size
 
-        # Dividir los datos en subconjuntos
-        data_subsets = [data[i*subset_size:(i+1)*subset_size] for i in range(size)]
-    return data_subsets
+        for _ in range(rank * subset_size):
+            next(csvreader)
+        
+        data_subset = []
+        for _ in range(subset_size):
+            try:
+                row = next(csvreader)
+                data_subset.append((int(row['structureId']), row['sequence']))
+            except StopIteration:
+                break
+    return data_subset
     
 def search_pattern(data_chunk, pattern):
     ocurrences_dict = {}
@@ -55,13 +65,10 @@ def main():
     pattern_in_upper_case = pattern.upper()
 
     t0 = time.time()
-    proteins = read_data()
-
-    # Scatter the data to all processes
-    local_proteins = comm.scatter(proteins, root=0)
+    local_data = read_data(500000)
 
     # Search for the pattern in each process's data chunk
-    local_ocurrences_dict = search_pattern(local_proteins, pattern_in_upper_case)
+    local_ocurrences_dict = search_pattern(local_data, pattern_in_upper_case)
 
     # Gather results from all processes
     ocurrences_dicts = comm.gather(local_ocurrences_dict, root=0)
