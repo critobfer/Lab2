@@ -4,11 +4,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 from mpi4py import MPI
 from itertools import islice
+import json
 
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
+
+def get_num_rows():
+    with open('parameters.json', 'r') as archivo:
+        param = json.load(archivo)
+
+    nrows = param['numrow']
+    return nrows
 
 def read_data(numrows):
     subset_size = numrows // size
@@ -56,16 +64,18 @@ def max_occurrences_protein(ocurrences_dict_sorted, pattern_in_upper_case):
 def main():
     if rank == 0:
         # Only the root process collects user input
+        numrows = get_num_rows()
         pattern = input("Please insert the pattern you want to search for: ")
     else:
         pattern = None
+        numrows = None
 
     # Broadcast the pattern to all processes
-    pattern = comm.bcast(pattern, root=0)
+    [pattern, numrows] = comm.bcast([pattern, numrows], root=0)
     pattern_in_upper_case = pattern.upper()
 
     t0 = time.time()
-    local_data = read_data(500000)
+    local_data = read_data(numrows)
 
     # Search for the pattern in each process's data chunk
     local_ocurrences_dict = search_pattern(local_data, pattern_in_upper_case)
@@ -87,7 +97,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
