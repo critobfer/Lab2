@@ -1,3 +1,4 @@
 {
-    "numrow": 50000
+  "numrow": 50000,
+  "numprocessers": 5
 }

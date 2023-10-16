@@ -20,6 +20,10 @@ def get_num_rows():
 
 def read_data(numrows):
     subset_size = numrows // size
+    rest_size = numrows % size
+    # In order to analyze all the data
+    if rank < rest_size:
+        subset_size += 1
 
     with open('proteins.csv', newline='') as csvfile:
         csvreader = csv.DictReader(csvfile)
