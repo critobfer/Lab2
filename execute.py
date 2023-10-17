@@ -6,7 +6,7 @@ with open('parameters.json', 'r') as archivo:
 
 numrows = param['numrow']
 
-numprocessers = param['numprocessers']
+numprocessers = param['numprocesses']
 
 os.system('python proteins-generator.py ' + str(numrows))
 
