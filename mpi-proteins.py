@@ -74,7 +74,7 @@ def main():
         pattern = None
         numrows = None
         
-    t0 = time.time()
+    t0 = MPI.Wtime()
 
     # Broadcast the pattern to all processes
     [pattern, numrows] = comm.bcast([pattern, numrows], root=0)
@@ -88,7 +88,7 @@ def main():
     # Gather results from all processes
     ocurrences_dicts = comm.gather(local_ocurrences_dict, root=0)
 
-    t1 = time.time()
+    t1 = MPI.Wtime()
 
     if rank == 0:
         # Combine results from all processes
