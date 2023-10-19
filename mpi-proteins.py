@@ -73,12 +73,13 @@ def main():
     else:
         pattern = None
         numrows = None
+        
+    t0 = time.time()
 
     # Broadcast the pattern to all processes
     [pattern, numrows] = comm.bcast([pattern, numrows], root=0)
     pattern_in_upper_case = pattern.upper()
 
-    t0 = time.time()
     local_data = read_data(numrows)
 
     # Search for the pattern in each process's data chunk
